@@ -1,5 +1,5 @@
 #  coding: utf-8 
-import socketserver
+import socketserver, os, time
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
@@ -28,11 +28,74 @@ import socketserver
 
 
 class MyWebServer(socketserver.BaseRequestHandler):
+    # Heavily Referenced Jonathan Cardasis (Feb 7, 2017) 
+    # on Github Gist: https://gist.github.com/joncardasis/cc67cfb160fa61a0457d6951eff2aeae
+
+    PACKET_SIZE = 1024
+    BASE_PATH = 'www'
     
     def handle(self):
-        self.data = self.request.recv(1024).strip()
+        self.data = self.request.recv(self.PACKET_SIZE).strip()
         print ("Got a request of: %s\n" % self.data)
-        self.request.sendall(bytearray("OK",'utf-8'))
+        
+        self.decodedData = self.data.decode('utf-8') 
+
+        (requestMethod, requestFile, contentType) = self.parseHeaders()
+
+        if requestMethod == 'GET':
+
+            filePath =  self.BASE_PATH + requestFile
+            print("Serving web page: " + filePath)
+
+            try:
+                f = open(filePath, 'rb')
+                responseData = f.read()
+                f.close()
+
+                responseHeader = self.buildHeaders(200, contentType)
+
+                response = responseHeader.encode('utf-8')
+                response += responseData
+
+            except:
+                print("File not found. Serving 404 page")
+                responseHeader = self.buildHeaders(404, contentType)
+
+                response = responseHeader.encode('utf-8')
+            
+        
+            self.request.sendall(bytearray(response))
+
+    def parseHeaders(self):
+        requestMethod = self.decodedData.split(' ')[0]
+        requestFile = self.decodedData.split(' ')[1]
+
+        if requestFile == '/':
+            requestFile = '/index.html'
+
+        contentType = 'text/' + requestFile.split('.')[1]
+        print("Request Method: %s, Request File: %s, Content-Type: %s" % (requestMethod, requestFile, contentType))
+
+        return (requestMethod, requestFile, contentType)
+
+    
+    
+    def buildHeaders(self, responseCode, contentType):
+        header = ''
+
+        if responseCode == 200:
+            header += 'HTTP/1.1 200 OK\n'
+
+        elif responseCode == 404:
+            header += 'HTTP/1.1 404 Not Found\n'
+        
+        header += 'Server: CMPUT404-webserver-yangyi1\n'
+        header += 'Content-Type: %s\n' % contentType
+        header += 'Connection: close\n\n'
+
+        return header
+
+
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080

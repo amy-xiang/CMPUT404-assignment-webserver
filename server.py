@@ -31,47 +31,44 @@ import socketserver, os
 #   - (handle, parseHeaders, buildHeaders) Jonathan Cardasis (Feb 7, 2017), Date Accessed: JAN 25, 2021
 #     on Github Gist: https://gist.github.com/joncardasis/cc67cfb160fa61a0457d6951eff2aeae
 #
-#   - (lines 121, 122) MDN Web Docs, Date Accessed: JAN 26, 2021 
+#   - (lines 125, 126) MDN Web Docs, Date Accessed: JAN 26, 2021 
 #     https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/301
 #
-#   - (constrictPath) James Gallagher (NOV 19, 2020), Date Accessed: JAN 26, 2021 
-#     on CareerKarma: https://careerkarma.com/blog/python-list-files-in-directory/
-#
-#   - (setup) Python Docs Socketserver, Date Accessed: JAN 26, 2021
-#      https://docs.python.org/3/library/socketserver.html
-#
-#   - (line 105, 155) Python Docs OS, Date Accessed: JAN 26, 2021
+#   - (lines 107, 143, 149) Python Docs OS, Date Accessed: JAN 27, 2021
 #      https://docs.python.org/3/library/os.path.html
 #-------------------------------------------------------------------------------------------#
 
 class MyWebServer(socketserver.BaseRequestHandler):
+    #initialize constants
+    PACKET_SIZE = 1024
+    BASE_PATH = 'www'
+    BASE_URL = "http://127.0.0.1:8080"
 
-    def setup(self):
-        self.PACKET_SIZE = 1024
-        self.BASE_PATH = 'www'
-        self.BASE_URL = "http://127.0.0.1:8080"
-        self.constrictedPaths = self.constrictPath()
-    
 
     def handle(self):
+        # get request data
         self.data = self.request.recv(self.PACKET_SIZE).strip()
-        
+    
+        # decode and parse headers
         self.decodedData = self.data.decode('utf-8') 
-
         (requestMethod, requestFile, contentType) = self.parseHeaders()
 
+        # only accept GET requests
         if requestMethod == 'GET':
 
             responseData = ''
             filePath =  self.BASE_PATH + requestFile
 
             try:
+                # determine if filepath is in www directory and if path needs redirecting
                 redirect = self.verifyPath(filePath)
 
                 if redirect:
+                    # send 301 and redirect path
                     correctPath = self.BASE_URL + requestFile + '/'
                     responseHeader = self.buildHeaders(301, correctPath=correctPath)
                 else:
+                    # send 200 and get file data
                     f = open(filePath, 'rb')
                     responseData = f.read()
                     f.close()
@@ -79,6 +76,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
                     responseHeader = self.buildHeaders(200, contentType)
                 
             except:
+                # send 404, path doesn't exist in www directory
                 responseHeader = self.buildHeaders(404)
 
             response = responseHeader.encode('utf-8')
@@ -87,23 +85,28 @@ class MyWebServer(socketserver.BaseRequestHandler):
                 response += responseData
         
         else:
+            # send 405, not a GET request
             responseHeader = self.buildHeaders(405)
             response = responseHeader.encode('utf-8')
 
-        
+        #send response
         self.request.sendall(bytearray(response))
 
 
     def parseHeaders(self):
+        # get request method and file from request
         requestMethod = self.decodedData.split(' ')[0]
         requestFile = self.decodedData.split(' ')[1]
         contentType = ''
 
+        # sets request file as index.html if path ends in /
         if requestFile == '/' or requestFile.endswith('/'):
             requestFile = requestFile + 'index.html'
 
+        # gets file extension
         extension = os.path.splitext(requestFile)[1]
 
+        # sets content-type if html or css
         if extension == '.html' or extension == '.css':
             contentType = 'text/' + extension[1:]
             
@@ -113,6 +116,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
     def buildHeaders(self, responseCode, contentType='', correctPath=''):
         header = ''
 
+        # builds header based on response code
         if responseCode == 200:
             header += 'HTTP/1.1 200 OK\n'
             header += 'Content-Type: %s\n' % contentType
@@ -129,37 +133,27 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
         
         header += 'Server: CMPUT404-webserver-yangyi1\n'
-        header += 'Connection: close\n\n'
+        header += 'Connection: close \n\n'
 
         return header
 
 
-    def constrictPath(self):
-        
-        constrictedPaths = []
-
-        formattedBasePath = self.BASE_PATH + '/'
-
-        for root, dirs, files in os.walk(formattedBasePath):
-            for name in files:
-                constrictedPaths.append(os.path.join(root, name))
-            for name in dirs:
-                constrictedPaths.append(os.path.join(root, name))
-        
-        return constrictedPaths
-
-    
     def verifyPath(self, path):
-        
-        if path in self.constrictedPaths:
-            if os.path.isdir(path):
+        # gets absolute path of location
+        abspath = os.path.abspath(path)
+
+        # determines if path location is in www directory
+        if (self.BASE_PATH + '/') in abspath:
+
+            # determines if redirecting is needed
+            if os.path.isdir(abspath):
                 return True
             
             return False
-            
-        raise Exception
         
-
+        # raise exception if file not in www
+        raise Exception
+ 
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080

@@ -1,5 +1,4 @@
-CMPUT404-assignment-webserver
-=============================
+# CMPUT404-assignment-webserver
 
 CMPUT404-assignment-webserver
 
@@ -7,20 +6,26 @@ See requirements.org (plain-text) for a description of the project.
 
 Make a simple webserver.
 
-Contributors / Licensing
-========================
+# Contributors / Licensing
 
-Generally everything is LICENSE'D under the Apache 2 license by Abram Hindle.
+Forked From: https://github.com/abramhindle/CMPUT404-assignment-webserver
 
-server.py contains contributions from:
+This assignment copy is licensed under Apache 2 by Amy Xiang.
+Assignment base code (from fork) is licensed under Apache 2 by Abram Hindle.
 
-* Abram Hindle
-* Eddie Antonio Santos
-* Jackson Z Chang
-* Mandy Meindersma 
+Referenced the below code in server.py:
 
-But the server.py example is derived from the python documentation
-examples thus some of the code is Copyright © 2001-2013 Python
-Software Foundation; All Rights Reserved under the PSF license (GPL
-compatible) http://docs.python.org/2/library/socketserver.html
+- (handle, parseHeaders, buildHeaders) Jonathan Cardasis (Feb 7, 2017), Date Accessed: JAN 25, 2021
+  on Github Gist: https://gist.github.com/joncardasis/cc67cfb160fa61a0457d6951eff2aeae
 
+- (lines 121, 122) MDN Web Docs, Date Accessed: JAN 26, 2021
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/301
+
+- (constrictPath) James Gallagher (NOV 19, 2020), Date Accessed: JAN 26, 2021
+  on CareerKarma: https://careerkarma.com/blog/python-list-files-in-directory/
+
+- (setup) Python Docs Socketserver, Date Accessed: JAN 26, 2021
+  https://docs.python.org/3/library/socketserver.html
+
+- (line 105, 155) Python Docs OS, Date Accessed: JAN 26, 2021
+  https://docs.python.org/3/library/os.path.html

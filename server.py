@@ -1,7 +1,7 @@
 #  coding: utf-8 
-import socketserver, os, time
+import socketserver, os
 
-# Copyright 2013 Abram Hindle, Eddie Antonio Santos
+# Copyright 2013 Abram Hindle, Eddie Antonio Santos, Amy Xiang
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,17 +26,35 @@ import socketserver, os, time
 
 # try: curl -v -X GET http://127.0.0.1:8080/
 
+#-------------------------------------------------------------------------------------------#
+# Code References:
+#   - (handle, parseHeaders, buildHeaders) Jonathan Cardasis (Feb 7, 2017), Date Accessed: JAN 25, 2021
+#     on Github Gist: https://gist.github.com/joncardasis/cc67cfb160fa61a0457d6951eff2aeae
+#
+#   - (lines 121, 122) MDN Web Docs, Date Accessed: JAN 26, 2021 
+#     https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/301
+#
+#   - (constrictPath) James Gallagher (NOV 19, 2020), Date Accessed: JAN 26, 2021 
+#     on CareerKarma: https://careerkarma.com/blog/python-list-files-in-directory/
+#
+#   - (setup) Python Docs Socketserver, Date Accessed: JAN 26, 2021
+#      https://docs.python.org/3/library/socketserver.html
+#
+#   - (line 105, 155) Python Docs OS, Date Accessed: JAN 26, 2021
+#      https://docs.python.org/3/library/os.path.html
+#-------------------------------------------------------------------------------------------#
 
 class MyWebServer(socketserver.BaseRequestHandler):
-    # Heavily Referenced Jonathan Cardasis (Feb 7, 2017) 
-    # on Github Gist: https://gist.github.com/joncardasis/cc67cfb160fa61a0457d6951eff2aeae
 
-    PACKET_SIZE = 1024
-    BASE_PATH = 'www'
+    def setup(self):
+        self.PACKET_SIZE = 1024
+        self.BASE_PATH = 'www'
+        self.BASE_URL = "http://127.0.0.1:8080"
+        self.constrictedPaths = self.constrictPath()
     
+
     def handle(self):
         self.data = self.request.recv(self.PACKET_SIZE).strip()
-        print ("Got a request of: %s\n" % self.data)
         
         self.decodedData = self.data.decode('utf-8') 
 
@@ -44,57 +62,103 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
         if requestMethod == 'GET':
 
+            responseData = ''
             filePath =  self.BASE_PATH + requestFile
-            print("Serving web page: " + filePath)
 
             try:
-                f = open(filePath, 'rb')
-                responseData = f.read()
-                f.close()
+                redirect = self.verifyPath(filePath)
 
-                responseHeader = self.buildHeaders(200, contentType)
+                if redirect:
+                    correctPath = self.BASE_URL + requestFile + '/'
+                    responseHeader = self.buildHeaders(301, correctPath=correctPath)
+                else:
+                    f = open(filePath, 'rb')
+                    responseData = f.read()
+                    f.close()
 
-                response = responseHeader.encode('utf-8')
-                response += responseData
-
+                    responseHeader = self.buildHeaders(200, contentType)
+                
             except:
-                print("File not found. Serving 404 page")
-                responseHeader = self.buildHeaders(404, contentType)
+                responseHeader = self.buildHeaders(404)
 
-                response = responseHeader.encode('utf-8')
-            
+            response = responseHeader.encode('utf-8')
+
+            if responseData:
+                response += responseData
         
-            self.request.sendall(bytearray(response))
+        else:
+            responseHeader = self.buildHeaders(405)
+            response = responseHeader.encode('utf-8')
+
+        
+        self.request.sendall(bytearray(response))
+
 
     def parseHeaders(self):
         requestMethod = self.decodedData.split(' ')[0]
         requestFile = self.decodedData.split(' ')[1]
+        contentType = ''
 
-        if requestFile == '/':
-            requestFile = '/index.html'
+        if requestFile == '/' or requestFile.endswith('/'):
+            requestFile = requestFile + 'index.html'
 
-        contentType = 'text/' + requestFile.split('.')[1]
-        print("Request Method: %s, Request File: %s, Content-Type: %s" % (requestMethod, requestFile, contentType))
+        extension = os.path.splitext(requestFile)[1]
 
+        if extension == '.html' or extension == '.css':
+            contentType = 'text/' + extension[1:]
+            
         return (requestMethod, requestFile, contentType)
 
     
-    
-    def buildHeaders(self, responseCode, contentType):
+    def buildHeaders(self, responseCode, contentType='', correctPath=''):
         header = ''
 
         if responseCode == 200:
             header += 'HTTP/1.1 200 OK\n'
+            header += 'Content-Type: %s\n' % contentType
 
+        elif responseCode == 301:
+            header += 'HTTP/1.1 301 Moved Permanently\n'
+            header += 'Location: %s\n' % correctPath
+            
         elif responseCode == 404:
             header += 'HTTP/1.1 404 Not Found\n'
+
+        elif responseCode == 405:
+            header += 'HTTP/1.1 405 Method Not Allowed\n'
+
         
         header += 'Server: CMPUT404-webserver-yangyi1\n'
-        header += 'Content-Type: %s\n' % contentType
         header += 'Connection: close\n\n'
 
         return header
 
+
+    def constrictPath(self):
+        
+        constrictedPaths = []
+
+        formattedBasePath = self.BASE_PATH + '/'
+
+        for root, dirs, files in os.walk(formattedBasePath):
+            for name in files:
+                constrictedPaths.append(os.path.join(root, name))
+            for name in dirs:
+                constrictedPaths.append(os.path.join(root, name))
+        
+        return constrictedPaths
+
+    
+    def verifyPath(self, path):
+        
+        if path in self.constrictedPaths:
+            if os.path.isdir(path):
+                return True
+            
+            return False
+            
+        raise Exception
+        
 
 
 if __name__ == "__main__":
